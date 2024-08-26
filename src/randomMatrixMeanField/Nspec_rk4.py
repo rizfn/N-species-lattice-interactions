@@ -75,21 +75,38 @@ def main():
 def no_diag():
 
     N = 100
+    N_steps = 100_000
     J = np.random.rand(N, N)
     # set the diagonal elements of J to 0
     np.fill_diagonal(J, 0)
 
     theta = 0.1
+    survival_threshold = 1e-3
 
-    T, Os, Ns = ode_integrate_rk4(N, J, theta, 100_000, 100_000)
+    T, Os, Ns = ode_integrate_rk4(N, J, theta, N_steps, N_steps)
+
+    surviving_counts = np.sum(Os > survival_threshold, axis=0)
+    change_indices = np.where(np.diff(surviving_counts) != 0)[0] + 1
 
     plt.figure(figsize=(10, 6))
     for i in range(N):
         plt.plot(T, Os[i, :], label=f'Species {i+1}')
     plt.xlabel('Time')
     plt.ylabel('Prevalence of N species')
-    plt.title(f'Random J (0 diagonals), {N=}, {theta=}')
+    plt.title(f'Random J (0 diagonals), {N=}, {theta=}, {surviving_counts[-1]} survive')
     plt.grid(True)
+    # Plot vertical dashed lines and add text annotations
+    for idx in range(len(change_indices)):
+        if T[change_indices[idx]] > T[N_steps // 10]:
+            plt.axvline(x=T[change_indices[idx]], color='k', linestyle='--', alpha=0.5)
+            if idx < len(change_indices) - 1:
+                mid_point = (T[change_indices[idx]] + T[change_indices[idx + 1]]) / 2
+                plt.text(mid_point, np.max(Os), f'{surviving_counts[change_indices[idx]]}', 
+                         verticalalignment='bottom', horizontalalignment='center', alpha=0.7)
+    if change_indices.size > 0 and T[change_indices[-1]] > T[N_steps // 4]:
+        plt.text((T[change_indices[-1]] + N_steps) / 2, np.max(Os), f'{surviving_counts[-1]}', 
+                 verticalalignment='bottom', horizontalalignment='center', alpha=0.7)
+
     # plt.legend()
     plt.savefig(f'src/randomMatrixMeanField/plots/NoDiagTimeseries/N_{N}_theta_{theta}_{time.time()}.png', dpi=300)
     plt.show()
@@ -97,5 +114,5 @@ def no_diag():
 
 
 if __name__ == '__main__':
-    main()
-    # no_diag()
+    # main()
+    no_diag()
