@@ -16,7 +16,7 @@ def update(frame, lines, img, ax):
     return img,
 
 def viz_with_nutrient():
-    N = 5  # Number of species
+    N = 50  # Number of species
     L = 512
     theta = 0.1
     filepath = f"src/randomMatrix2D/outputs/latticeTimeseries/N_{N}_L_{L}_theta_{theta}.tsv"
@@ -48,8 +48,8 @@ def viz_with_nutrient():
         return update(frame, lines, img, ax)
     ani = animation.FuncAnimation(fig, update_with_progress, frames=range(total_frames), fargs=(lines, img, ax), blit=True)
     # ffmpegwriter = animation.FFMpegWriter(fps=30, bitrate=-1)
-    # ani.save(f'src/randomMatrix2D/plots/latticeTimeseries/N_{N}_theta_{theta}_nutrient.mp4', writer=ffmpegwriter)
-    ani.save(f'src/randomMatrix2D/plots/latticeTimeseries/N_{N}_theta_{theta}_nutrient.gif', writer='ffmpeg', fps=30)
+    # ani.save(f'src/randomMatrix2D/plots/latticeAnim/N_{N}_theta_{theta}_nutrient.mp4', writer=ffmpegwriter)
+    ani.save(f'src/randomMatrix2D/plots/latticeAnim/N_{N}_theta_{theta}_nutrient.gif', writer='ffmpeg', fps=30)
     pbar.close()
 
 
@@ -83,8 +83,8 @@ def main():
         return update(frame, lines, img, ax)
     ani = animation.FuncAnimation(fig, update_with_progress, frames=range(total_frames), fargs=(lines, img, ax), blit=True)
     # ffmpegwriter = animation.FFMpegWriter(fps=30, bitrate=-1)
-    # ani.save(f'src/randomMatrix2D/plots/latticeTimeseries/N_{N}_theta_{theta}.mp4', writer=ffmpegwriter)
-    ani.save(f'src/randomMatrix2D/plots/latticeTimeseries/N_{N}_theta_{theta}.gif', writer='ffmpeg', fps=30)
+    # ani.save(f'src/randomMatrix2D/plots/latticeAnim/N_{N}_theta_{theta}.mp4', writer=ffmpegwriter)
+    ani.save(f'src/randomMatrix2D/plots/latticeAnim/N_{N}_theta_{theta}.gif', writer='ffmpeg', fps=30)
     pbar.close()
 
 

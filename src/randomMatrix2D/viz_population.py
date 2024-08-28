@@ -4,8 +4,8 @@ import numpy as np
 
 def main():
     N = 50
-    L = 512
-    theta = 0.2
+    L = 1024
+    theta = 0.1
 
     data = pd.read_csv(f"src/randomMatrix2D/outputs/populationTimeseries/N_{N}_L_{L}_theta_{theta}.csv")
 

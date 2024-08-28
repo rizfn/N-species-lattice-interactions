@@ -3,6 +3,7 @@
 #include <array>
 #include <random>
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <iomanip>
 #include <string>
@@ -27,8 +28,8 @@ struct Coordinate
 
 // Define constants
 constexpr int STEPS_PER_LATTICEPOINT = 10000;
-constexpr double THETA = 0.2;
-constexpr int L = 512; // side length of the square lattice
+constexpr double THETA = 0.1;
+constexpr int L = 1024; // side length of the square lattice
 constexpr int N = 50;  // number of species
 
 constexpr std::array<int, N> RESOURCES = []
@@ -103,39 +104,40 @@ void update(std::vector<std::vector<int>> &soil_lattice, std::vector<std::vector
     // select a random site
     Coordinate site = {dis_l(gen), dis_l(gen)};
 
-    for (int i = 0; i < N; ++i)
+    int site_value = soil_lattice[site.x][site.y];
+
+    if (site_value >= N)
     {
-        if (soil_lattice[site.x][site.y] == BACTERIA[i])
-        { // bacteria of species i
-            // check for death
-            if (dis_real(gen) < THETA)
+        int i = site_value % N; // bacteria index
+
+        // check for death
+        if (dis_real(gen) < THETA)
+        {
+            soil_lattice[site.x][site.y] = RESOURCES[i];
+        }
+        else
+        {
+            // move into a neighbour
+            Coordinate new_site = get_random_neighbour(site);
+            // check the value of the new site
+            int new_site_value = soil_lattice[new_site.x][new_site.y];
+            // move the bacteria
+            soil_lattice[new_site.x][new_site.y] = BACTERIA[i];
+            soil_lattice[site.x][site.y] = RESOURCES[i];
+            // check if the new site is a nutrient that this bacteria can consume
+            if (new_site_value < N)
             {
-                soil_lattice[site.x][site.y] = RESOURCES[i];
+                // check if the bacteria can consume the nutrient
+                if (dis_real(gen) < J[i][new_site_value])
+                {
+                    soil_lattice[site.x][site.y] = BACTERIA[i];
+                }
             }
+            // check if the new site is a bacteria
             else
             {
-                // move into a neighbour
-                Coordinate new_site = get_random_neighbour(site);
-                // check the value of the new site
-                int new_site_value = soil_lattice[new_site.x][new_site.y];
-                // move the bacteria
-                soil_lattice[new_site.x][new_site.y] = BACTERIA[i];
-                soil_lattice[site.x][site.y] = RESOURCES[i];
-                // check if the new site is a nutrient that this bacteria can consume
-                if (std::find(RESOURCES.begin(), RESOURCES.end(), new_site_value) != RESOURCES.end())
-                {
-                    // check if the bacteria can consume the nutrient
-                    if (dis_real(gen) < J[i][new_site_value])
-                    {
-                        soil_lattice[site.x][site.y] = BACTERIA[i];
-                    }
-                }
-                // check if the new site is a bacteria
-                else
-                {
-                    // keep both with worms (undo the nutrient space in original site)
-                    soil_lattice[site.x][site.y] = new_site_value;
-                }
+                // keep both with worms (undo the nutrient space in original site)
+                soil_lattice[site.x][site.y] = new_site_value;
             }
         }
     }
