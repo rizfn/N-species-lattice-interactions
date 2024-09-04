@@ -2,3 +2,4 @@
 src/venv_nspec
 **.exe
 **/outputs/*
+src/randomMatrix2D/plots/latticeAnim/*.gif
