@@ -17,7 +17,7 @@ For a simple 2-species system, we have
 
 $$
 \begin{align}
-\frac{dO_i}{dt} &= O_i (1-O_i) \prod_j \left({N_j}^{J_{ij}} \right) - \theta O_i \\
-\frac{dN_i}{dt} &= O_i(1-N_i) - \sum_{k} \left( O_k (1-O_k) J_{ki} \prod_{j} \left( N_j^{J_{kj}} \right) \right)
+\frac{dO_i}{dt} &= O_i \left(1- \sum_j O_j\right) \prod_j \left({N_j}^{J_{ij}} \right) - \theta O_i \\
+\frac{dN_i}{dt} &= O_i(1-N_i) - \sum_{k} \left( O_k \left(1-\sum_mO_m\right) J_{ki} \prod_{j} \left( N_j^{J_{kj}} \right) \right)
 \end{align}
 $$

@@ -39,6 +39,7 @@ def main():
     plt.tight_layout()
 
     # plt.savefig(f'src/multipleNutrientsNecessary/plots/populationTimeseriesLattice/N_{N}_L_{L}_theta_{theta}_K_{K}.png', dpi=300)
+    plt.savefig(f'src/multipleNutrientsNecessary/plots/populationTimeseriesLatticeDiffchem/N_{N}_L_{L}_theta_{theta}_K_{K}.png', dpi=300)
     plt.show()
 
 
