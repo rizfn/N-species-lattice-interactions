@@ -24,6 +24,8 @@ style: |
 
 ---
 
+![bg right](fig/Mangrove.jpg)
+
 # Multi-species ecosystems
 
 $\\$
@@ -67,9 +69,11 @@ $J$ is a matrix with random (uniform) entries
 ---
 
 ![bg](fig/mathiesen_mitarai.png)
-![bg vertical right](fig/sneppen_trusina.png)
+![bg vertical right:60%](fig/sneppen_trusina.png)
 
 ### On a lattice?
+
+$\\$
 
 Done in a simple, elegant way!
 
@@ -163,8 +167,24 @@ $$ J_{ii} = 0 \quad \forall \;i $$
 
 ---
 
-### Lattice?
+<div class="columns">
 
+<video src="fig/lattice_anim_N_50_theta_0.1_1.mp4" autoplay muted loop style="max-width:100%;"></video>
+
+<div>
+
+### Lattice model
+<br>
+
+- Spatial patterning present
+
+- Invasion between ecosystems?
+
+
+</div>
+
+
+</div>
 
 ---
 
@@ -199,7 +219,7 @@ $\\$
 
 <div class="columns">
 
-<video src="fig/midas.mp4" autoplay muted loop></video>
+<video src="fig/midas.mp4" autoplay muted loop style="max-width:100%;"></video>
 
 ![width:500px](fig/midas_schematic.png)
 
