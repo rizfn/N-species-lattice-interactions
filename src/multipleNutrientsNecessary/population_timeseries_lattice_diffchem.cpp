@@ -15,11 +15,11 @@
 static auto _ = []()
 {std::ios_base::sync_with_stdio(false);std::cin.tie(nullptr);std::cout.tie(nullptr);return 0; }();
 
-constexpr int DEFAULT_STEPS_PER_LATTICEPOINT = 10000;
+constexpr int DEFAULT_STEPS_PER_LATTICEPOINT = 100000;
 constexpr double DEFAULT_THETA = 0.1;
 constexpr int DEFAULT_L = 1024;          // side length of the square lattice
-constexpr int DEFAULT_N_SPECIES = 50;   // number of species
-constexpr int DEFAULT_N_CHEMICALS = 20; // number of chemicals
+constexpr int DEFAULT_N_SPECIES = 200;   // number of species
+constexpr int DEFAULT_N_CHEMICALS = 50; // number of chemicals
 constexpr int DEFAULT_N_RUNS = 4;       // number of parallel runs
 constexpr int DEFAULT_K = 2;            // number of necessary resources  (NOTE: LIMITS ON K DUE TO MUTUALLY EXCLUSIVE INTAKE/OUTTAKE CHEMICALS)
 

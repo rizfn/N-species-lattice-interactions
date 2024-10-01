@@ -21,3 +21,11 @@ $$
 \frac{dN_i}{dt} &= O_i(1-N_i) - \sum_{k} \left( O_k \left(1-\sum_mO_m\right) J_{ki} \prod_{j} \left( N_j^{J_{kj}} \right) \right)
 \end{align}
 $$
+
+
+## Shimada And Model (`diffChem` files)
+
+Here, rather than each species secreting it's own chemical, you have a different number of chemicals and number of species.
+
+- Species eat chemicals from the consumption matrix $J$
+- Species secrete chemicals from the secretion matrix $S$
