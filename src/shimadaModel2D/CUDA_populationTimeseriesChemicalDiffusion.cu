@@ -16,7 +16,7 @@ constexpr double DEFAULT_THETA = 0.1;
 constexpr int DEFAULT_L = 1024;
 constexpr int DEFAULT_K = 2;
 constexpr int DEFAULT_STEPS_PER_LATTICEPOINT = 100000;
-constexpr float DEFAULT_D = 1.0f;
+constexpr float DEFAULT_D = 10.0f;
 constexpr int BLOCK_LENGTH = 4;
 constexpr int EMPTY = 0;
 
@@ -187,14 +187,44 @@ __global__ void diffuseKernel(float *d_chemical_lattice, int N_CHEMICALS, int L,
     }
 }
 
-__global__ void countLattice(int *d_lattice, int *d_counts, int size)
+__global__ void countLattice(int *d_lattice, int *d_counts, int size, int N_SPECIES)
 {
+    extern __shared__ int shared_counts[];
+
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
+    // Initialize shared memory
+    for (int i = threadIdx.x; i < N_SPECIES; i += blockDim.x)
+    {
+        shared_counts[i] = 0;
+    }
+    __syncthreads();
+
+    // Count in shared memory
     if (idx < size)
     {
         int value = d_lattice[idx];
-        atomicAdd(&d_counts[value], 1);
+        if (value != EMPTY)
+        {
+            atomicAdd(&shared_counts[value], 1);
+        }
+    }
+    __syncthreads();
+
+    // Reduce shared memory counts to global memory
+    for (int i = threadIdx.x; i < N_SPECIES; i += blockDim.x)
+    {
+        atomicAdd(&d_counts[i], shared_counts[i]);
+    }
+}
+
+__global__ void normalizeCounts(int *d_counts, float *d_normalizedCounts, int N_SPECIES, int N_STEPS, int L)
+{
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (idx < N_SPECIES * N_STEPS)
+    {
+        d_normalizedCounts[idx] = static_cast<float>(d_counts[idx]) / (L * L);
     }
 }
 
@@ -237,8 +267,11 @@ void run(int N_STEPS, std::ofstream &file, int L, int N_SPECIES, int N_CHEMICALS
 
     // Initialize counts to 0
     int *d_countArray;
-    cudaMalloc(&d_countArray, N_SPECIES * sizeof(int));
-    cudaMemset(d_countArray, 0, N_SPECIES * sizeof(int));
+    cudaMalloc(&d_countArray, N_SPECIES * N_STEPS * sizeof(int));
+    cudaMemset(d_countArray, 0, N_SPECIES * N_STEPS * sizeof(int));
+
+    float *d_normalizedCounts;
+    cudaMalloc(&d_normalizedCounts, N_SPECIES * N_STEPS * sizeof(float));
 
     int threadsPerBlockCounting = 256;
     int blocksPerGridCounting = (L * L + threadsPerBlockCounting - 1) / threadsPerBlockCounting;
@@ -262,23 +295,31 @@ void run(int N_STEPS, std::ofstream &file, int L, int N_SPECIES, int N_CHEMICALS
         cudaDeviceSynchronize();
 
         // Count the bacteria population
-        cudaMemset(d_countArray, 0, N_SPECIES * sizeof(int));
-        countLattice<<<blocksPerGridCounting, threadsPerBlockCounting>>>(d_bacteria_lattice, d_countArray, L * L);
+        countLattice<<<blocksPerGridCounting, threadsPerBlockCounting, N_SPECIES * sizeof(int)>>>(d_bacteria_lattice, d_countArray + step * N_SPECIES, L * L, N_SPECIES);
         cudaDeviceSynchronize();
 
-        // Copy the counts back to the host
-        std::vector<int> counts(N_SPECIES);
-        cudaMemcpy(counts.data(), d_countArray, N_SPECIES * sizeof(int), cudaMemcpyDeviceToHost);
+        std::cout << "Progress: " << std::fixed << std::setprecision(2) << static_cast<double>(step) / N_STEPS * 100 << "%\r" << std::flush;
+    }
 
-        // Write the counts to the file
+    // Normalize the counts
+    int threadsPerBlockNormalize = 256;
+    int blocksPerGridNormalize = (N_SPECIES * N_STEPS + threadsPerBlockNormalize - 1) / threadsPerBlockNormalize;
+    normalizeCounts<<<blocksPerGridNormalize, threadsPerBlockNormalize>>>(d_countArray, d_normalizedCounts, N_SPECIES, N_STEPS, L);
+    cudaDeviceSynchronize();
+
+    // Copy the normalized counts back to the host
+    std::vector<float> normalizedCounts(N_SPECIES * N_STEPS);
+    cudaMemcpy(normalizedCounts.data(), d_normalizedCounts, N_SPECIES * N_STEPS * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Write the normalized counts to the file
+    for (int step = 0; step < N_STEPS; ++step)
+    {
         file << step;
         for (int i = 0; i < N_SPECIES; ++i)
         {
-            file << "," << counts[i];
+            file << "," << normalizedCounts[step * N_SPECIES + i];
         }
         file << "\n";
-
-        std::cout << "Progress: " << std::fixed << std::setprecision(2) << static_cast<double>(step) / N_STEPS * 100 << "%\r" << std::flush;
     }
 
     // Free the memory allocated on the GPU
@@ -286,6 +327,7 @@ void run(int N_STEPS, std::ofstream &file, int L, int N_SPECIES, int N_CHEMICALS
     cudaFree(d_chemical_lattice);
     cudaFree(d_state);
     cudaFree(d_countArray);
+    cudaFree(d_normalizedCounts);
 }
 
 int main(int argc, char *argv[])

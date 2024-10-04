@@ -40,7 +40,7 @@ def main():
         axs[fileidx].grid()
 
     plt.tight_layout()
-
+    # plt.savefig(f'src/shimadaModel2D/plots/timeseriesChemicalDiffusion/CPU_N_{N_species}-{N_chemicals}_L_{L}_theta_{theta}_K_{K}_D_{D}.png', dpi=300)
     plt.show()
 
 
@@ -83,9 +83,9 @@ def cuda():
     ax2.grid()
 
     plt.tight_layout()
-    # plt.savefig(f'src/shimadaModel2D/plots/timeseriesChemicalDiffusion/N_{N_species}-{N_chemicals}_L_{L}_theta_{theta}_K_{K}_D_{D}.png', dpi=300)
+    plt.savefig(f'src/shimadaModel2D/plots/timeseriesChemicalDiffusion/N_{N_species}-{N_chemicals}_L_{L}_theta_{theta}_K_{K}_D_{D}.png', dpi=300)
     plt.show()
 
 if __name__ == "__main__":
-    main()
-    # cuda()
+    # main()
+    cuda()
