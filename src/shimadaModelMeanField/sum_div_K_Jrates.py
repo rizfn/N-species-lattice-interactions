@@ -82,7 +82,7 @@ def ode_integrate_rk4(N_species, N_chemicals, J, S, theta, k, stoptime=100_000, 
     return T, Os, Ns
 
 
-def init_J_S_maps(N_species, N_chemicals, k):
+def init_J_S_maps(N_species, N_chemicals, k, lowerlim=0.5):
     J = typed.Dict.empty(
         key_type=types.int64,
         value_type=types.ListType(types.Tuple((types.int64, types.float64)))
@@ -96,7 +96,7 @@ def init_J_S_maps(N_species, N_chemicals, k):
         np.random.shuffle(possible_indices)
         J[i] = typed.List.empty_list(types.Tuple((types.int64, types.float64)))
         for idx in possible_indices[:k]:
-            rate = np.random.rand()
+            rate = lowerlim + (1-lowerlim) * np.random.rand()
             J[i].append((idx, rate))
         S[i] = np.array(possible_indices[k:2*k], dtype=np.int64)
     return J, S
@@ -104,9 +104,10 @@ def init_J_S_maps(N_species, N_chemicals, k):
 def main():
 
     N_species = 200
-    N_chemicals = 50
+    N_chemicals = 100
     k = 2
-    N_steps = 1_000_000
+    lower_lim_rate = 1
+    N_steps = 10_000_000
     N_sims = 4
     N_datapoints = 1000
     dataskip = N_steps // N_datapoints
@@ -114,7 +115,7 @@ def main():
     theta = 0.01
     survival_threshold = 1e-6
 
-    J, S = init_J_S_maps(N_species, N_chemicals, k)
+    J, S = init_J_S_maps(N_species, N_chemicals, k, lower_lim_rate)
 
     fig, axs = plt.subplots(N_sims // (N_sims//2), N_sims//2, figsize=(16, 12))
     axs = axs.flatten()
@@ -133,7 +134,7 @@ def main():
         axs[sim].grid(True)
         axs[sim].set_title(f'{surviving_counts[-1]} survive')
 
-    plt.suptitle(f'{N_species=}, {N_chemicals}, {k=} {theta=}')
+    plt.suptitle(f'{N_species} species, {N_chemicals} chemicals, {k=}, $\\theta$={theta}, lim_rate={lower_lim_rate}')
     # plt.legend()
     plt.savefig(f'src/shimadaModelMeanField/plots/sum_div_K_Jrates/N_{N_species}-{N_chemicals}_k_{k}_theta_{theta}_{time.time()}.png', dpi=300)
     plt.show()

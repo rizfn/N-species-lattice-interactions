@@ -48,9 +48,9 @@ def cuda():
     N_species = 200
     N_chemicals = 50
     L = 1024
-    theta = 0.1
+    theta = 0.01
     K = 2
-    D = 1
+    D = 0
     alive_tolerance = 1e-6
 
     file = f"src/shimadaModel2D/outputs/timeseriesChemicalDiffusionCUDA/N_{N_species}-{N_chemicals}_L_{L}_theta_{theta}_K_{K}_D_{D}.csv"

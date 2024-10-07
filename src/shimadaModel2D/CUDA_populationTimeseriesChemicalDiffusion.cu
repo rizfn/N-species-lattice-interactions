@@ -12,11 +12,11 @@
 // Define constants
 constexpr int DEFAULT_N_SPECIES = 200;
 constexpr int DEFAULT_N_CHEMICALS = 50;
-constexpr double DEFAULT_THETA = 0.1;
+constexpr double DEFAULT_THETA = 0.01;
 constexpr int DEFAULT_L = 1024;
 constexpr int DEFAULT_K = 2;
 constexpr int DEFAULT_STEPS_PER_LATTICEPOINT = 100000;
-constexpr float DEFAULT_D = 10.0f;
+constexpr float DEFAULT_D = 0.0f;
 constexpr int BLOCK_LENGTH = 4;
 constexpr int EMPTY = 0;
 
