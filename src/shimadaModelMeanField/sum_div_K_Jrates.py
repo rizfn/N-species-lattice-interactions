@@ -104,9 +104,9 @@ def init_J_S_maps(N_species, N_chemicals, k, lowerlim=0.5):
 def main():
 
     N_species = 200
-    N_chemicals = 100
-    k = 2
-    lower_lim_rate = 1
+    N_chemicals = 50
+    k = 4
+    lower_lim_rate = 0.9
     N_steps = 10_000_000
     N_sims = 4
     N_datapoints = 1000
