@@ -4,49 +4,37 @@ import matplotlib.pyplot as plt
 
 # @njit
 # def ode_derivatives(S, X, growth_rate, reaction_rates, connectivity):
-#     dS = np.zeros_like(S)
+#     dS = growth_rate * (1 - S)  # Basic growth rate for resources
 #     dX = np.zeros_like(X)
 
-#     # Update resources
-#     for i in range(len(S)):
-#         resource_consumption = 0.0
-#         for j in range(len(X)):
-#             for k in range(len(X)):
-#                 if connectivity[j, k] == i:  # Check if there is a reaction using resource i
-#                     resource_consumption += reaction_rates[j, k] * X[j] * X[k]
-#         dS[i] = growth_rate * (1 - S[i]) - resource_consumption * S[i]
-
-#     # Update chemicals
-#     for i in range(len(X)):
-#         reaction_sum = 0.0
-#         for j in range(len(X)):
-#             if connectivity[j, i] >= 0:  # Check if there is a reaction
-#                 resource_index = connectivity[j, i]  # Get the resource index (0-based)
-#                 reaction_sum += reaction_rates[j, i] * X[j] * X[i] * S[resource_index]
-#         dX[i] = reaction_sum
+#     # Iterate over every pair of chemicals
+#     for j in range(len(X)):
+#         for k in range(len(X)):
+#             resource_index = connectivity[j, k]
+#             if resource_index >= 0:  # Check if there is a reaction using a resource
+#                 reaction_rate = reaction_rates[j, k]
+#                 reaction_term = reaction_rate * X[j] * X[k]
+#                 dS[resource_index] -= reaction_term * S[resource_index]
+#                 dX[k] += reaction_term * S[resource_index]
 
 #     return dS, dX
 
 @njit
 def ode_derivatives(S, X, growth_rate, reaction_rates, connectivity):
-    dS = np.zeros_like(S)
+    dS = growth_rate - S  # Basic growth rate for resources
     dX = np.zeros_like(X)
 
-    # Update resources
-    for i in range(len(S)):
-        mask = connectivity == i
-        resource_consumption = np.sum(reaction_rates[mask] * X[:, None] * X[None, :][mask])
-        dS[i] = growth_rate * (1 - S[i]) - resource_consumption * S[i]
-
-    # Update chemicals
-    for i in range(len(X)):
-        mask = connectivity[:, i] >= 0
-        resource_indices = connectivity[:, i][mask]
-        reaction_sum = np.sum(reaction_rates[mask, i] * X[mask] * X[i] * S[resource_indices])
-        dX[i] = reaction_sum
+    # Iterate over every pair of chemicals
+    for j in range(len(X)):
+        for k in range(len(X)):
+            resource_index = connectivity[j, k]
+            if resource_index >= 0:  # Check if there is a reaction using a resource
+                reaction_rate = reaction_rates[j, k]
+                reaction_term = reaction_rate * X[j] * X[k] * S[resource_index]
+                dS[resource_index] -= reaction_term
+                dX[k] += reaction_term
 
     return dS, dX
-
 
 
 @njit
@@ -96,9 +84,12 @@ def ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rates, connectivity, S0, X
 def main():
     N_s = 10
     N_c = 100
+    # growth_rate = 0.01 / N_s
     growth_rate = 0.01
+    alpha_min = 0.5
+    alpha_max = 1
     sparsity = 0.8  # Fraction of the connectivity matrix that should be set to -1
-    survival_threshold = 0.01 * 1 / (N_s + N_c)
+    survival_threshold = 0.01 * 1 / N_c
 
     connectivity = np.random.randint(0, N_s, (N_c, N_c))  # Random connectivity matrix with resource indices
     mask = np.random.rand(N_c, N_c) < sparsity
@@ -106,7 +97,7 @@ def main():
     for i in range(N_c):
         connectivity[i, i] = -1  # prevent self-catalyzation
 
-    reaction_rates = np.random.uniform(0.5, 1, (N_c, N_c))  # Random reaction rates in the interval (0.5, 1)
+    reaction_rates = np.random.uniform(alpha_min, alpha_max, (N_c, N_c))  # Random reaction rates in the interval (0.5, 1)
 
     S0 = np.random.rand(N_s)
     X0 = np.random.rand(N_c)
@@ -114,9 +105,9 @@ def main():
     S0 /= total
     X0 /= total
 
-    stoptime = 10000
-    nsteps = 10000
-    dataskip = 10
+    stoptime = 1000000
+    nsteps = 10000000
+    dataskip = 100
 
     T, S_vals, X_vals = ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rates, connectivity, S0, X0, stoptime, nsteps, dataskip)
 
@@ -130,7 +121,6 @@ def main():
     axs[0].set_xlabel('Time')
     axs[0].set_ylabel('Resource Values')
     axs[0].set_title('Resources')
-    axs[0].legend()
     axs[0].grid(True)
 
     for i in range(N_c):
@@ -138,10 +128,9 @@ def main():
     axs[1].set_xlabel('Time')
     axs[1].set_ylabel('Chemical Values')
     axs[1].set_title('Chemicals')
-    axs[1].legend()
     axs[1].grid(True)
 
-    plt.suptitle(f'{N_s} resources, {N_c} chemicals, $\gamma$={growth_rate}, sparsity={sparsity}\n{N_surviving_species} survive')
+    plt.suptitle(f'{N_s} resources, {N_c} chemicals, $\gamma$={growth_rate}, $\\alpha\in[${alpha_min},{alpha_max}$]$, sparsity={sparsity}\n{N_surviving_species} survive')
 
     plt.tight_layout()
     plt.show()
