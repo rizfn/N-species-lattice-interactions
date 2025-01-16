@@ -2,128 +2,125 @@ import numpy as np
 from numba import njit
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import multiprocessing as mp
 
 @njit
-def ode_derivatives(S, X, growth_rate, reaction_rate, connectivity):
-    dS = np.zeros_like(S)
+def ode_derivatives(S, X, growth_rate, reaction_rates, connectivity):
+    dS = growth_rate * (1 - S)  # Basic growth rate for resources
     dX = np.zeros_like(X)
 
-    # Update resources
-    for i in range(len(S)):
-        resource_consumption = 0.0
-        for j in range(len(X)):
-            for k in range(len(X)):
-                if connectivity[j, k] == i:  # Check if there is a reaction using resource i
-                    resource_consumption += reaction_rate * X[j] * X[k]
-        dS[i] = growth_rate * S[i] - resource_consumption * S[i]
-
-    # Update chemicals
-    for i in range(len(X)):
-        reaction_sum = 0.0
-        for j in range(len(X)):
-            if connectivity[j, i] >= 0:  # Check if there is a reaction
-                resource_index = connectivity[j, i]  # Get the resource index (0-based)
-                reaction_sum += reaction_rate * X[j] * X[i] * S[resource_index]
-        dX[i] = reaction_sum
+    # Iterate over every pair of chemicals
+    for j in range(len(X)):
+        for k in range(len(X)):
+            resource_index = connectivity[j, k]
+            if resource_index >= 0:  # Check if there is a reaction using a resource
+                reaction_rate = reaction_rates[j, k]
+                reaction_term = reaction_rate * X[j] * X[k] * S[resource_index]
+                dS[resource_index] -= reaction_term
+                dX[k] += reaction_term
 
     return dS, dX
 
 @njit
-def ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rate, connectivity, S0, X0, stoptime=100, nsteps=1000, dataskip=1):
+def ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rates, connectivity, S0, X0, stoptime=100, nsteps=1000):
     dt = stoptime / nsteps
-    n_records = nsteps // dataskip + 1
-
-    T = np.zeros(n_records)
-    S_vals = np.zeros((N_s, n_records))
-    X_vals = np.zeros((N_c, n_records))
-
-    S_vals[:, 0] = S0
-    X_vals[:, 0] = X0
 
     S, X = S0.copy(), X0.copy()
-    record_idx = 1
 
     for i in range(nsteps):
-        k1_S, k1_X = ode_derivatives(S, X, growth_rate, reaction_rate, connectivity)
+        k1_S, k1_X = ode_derivatives(S, X, growth_rate, reaction_rates, connectivity)
 
         S_temp = S + 0.5 * dt * k1_S
         X_temp = X + 0.5 * dt * k1_X
-        k2_S, k2_X = ode_derivatives(S_temp, X_temp, growth_rate, reaction_rate, connectivity)
+        k2_S, k2_X = ode_derivatives(S_temp, X_temp, growth_rate, reaction_rates, connectivity)
 
         S_temp = S + 0.5 * dt * k2_S
         X_temp = X + 0.5 * dt * k2_X
-        k3_S, k3_X = ode_derivatives(S_temp, X_temp, growth_rate, reaction_rate, connectivity)
+        k3_S, k3_X = ode_derivatives(S_temp, X_temp, growth_rate, reaction_rates, connectivity)
 
         S_temp = S + dt * k3_S
         X_temp = X + dt * k3_X
-        k4_S, k4_X = ode_derivatives(S_temp, X_temp, growth_rate, reaction_rate, connectivity)
+        k4_S, k4_X = ode_derivatives(S_temp, X_temp, growth_rate, reaction_rates, connectivity)
 
         S += (dt / 6) * (k1_S + 2 * k2_S + 2 * k3_S + k4_S)
         X += (dt / 6) * (k1_X + 2 * k2_X + 2 * k3_X + k4_X)
 
-        # Enforce carrying capacity
-        total = np.sum(S) + np.sum(X)
-        S /= total
-        X /= total
+        # Normalize only the chemicals
+        X /= np.sum(X)
 
-        if i % dataskip == 0:
-            S_vals[:, record_idx] = S
-            X_vals[:, record_idx] = X
-            T[record_idx] = i * dt
-            record_idx += 1
+    return S, X
 
-    return T, S_vals, X_vals
+def run_one_simulation(N_s, N_c, growth_rate, reaction_rates, connectivity, S0, X0, survival_threshold, stoptime, nsteps):
+    S, X = ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rates, connectivity, S0, X0, stoptime, nsteps)
 
-# @njit
-def run_one_simulation(N_s, N_c, growth_rate, reaction_rate, sparsity, survival_threshold, stoptime, nsteps, dataskip):
-    connectivity = np.random.randint(0, N_s, (N_c, N_c))  # Random connectivity matrix with resource indices
-    mask = np.random.rand(N_c, N_c) < sparsity
-    connectivity[mask] = -1  # Set a fraction of the matrix to -1 based on sparsity
-    for i in range(N_c):
-        connectivity[i, i] = -1  # prevent self-catalyzation
-
-    S0 = np.random.rand(N_s)
-    X0 = np.random.rand(N_c)
-    total = np.sum(S0) + np.sum(X0)
-    S0 /= total
-    X0 /= total
-
-    T, S_vals, X_vals = ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rate, connectivity, S0, X0, stoptime, nsteps, dataskip)
-
-    N_surviving_species = np.sum(X_vals[:, -1] > survival_threshold)
+    N_surviving_species = np.sum(X > survival_threshold)
 
     return N_surviving_species
 
+def worker(args):
+    return run_one_simulation(*args)
+
 def main():
     N_simulations = 100
-
     N_s = 10
     N_c = 100
-    reaction_rate = 1
+    alpha_min = 0.5
+    alpha_max = 1
     sparsity = 0.8  # Fraction of the connectivity matrix that should be set to -1
-    survival_threshold = 0.01 * 1 / (N_s + N_c)
-    stoptime = 10000000
-    nsteps = 10000
-    dataskip = 10
+    survival_threshold = 0.01 * 1 / N_c
+    nsteps = 10000000
 
-    growth_rate_list = np.geomspace(1e-4, 1e-1, 4)
+    growth_rate_list = np.geomspace(1e-6, 1e3, 10)
     N_surviving_species_mean = np.zeros_like(growth_rate_list)
     N_surviving_species_std = np.zeros_like(growth_rate_list)
 
-    for i in range(len(growth_rate_list)):
-        N_surviving_species = np.zeros(N_simulations)
-        for sim in tqdm(range(N_simulations)):
-            N_surviving_species[sim] = run_one_simulation(N_s, N_c, growth_rate_list[i], reaction_rate, sparsity, survival_threshold, stoptime, nsteps, dataskip)
+    # Generate connectivity, reaction rates, and initial conditions for each simulation
+    connectivity_list = []
+    reaction_rates_list = []
+    S0_list = []
+    X0_list = []
+    for _ in range(N_simulations):
+        connectivity = np.random.randint(0, N_s, (N_c, N_c))  # Random connectivity matrix with resource indices
+        mask = np.random.rand(N_c, N_c) < sparsity
+        connectivity[mask] = -1  # Set a fraction of the matrix to -1 based on sparsity
+        for i in range(N_c):
+            connectivity[i, i] = -1  # prevent self-catalyzation
+
+        reaction_rates = np.random.uniform(alpha_min, alpha_max, (N_c, N_c))  # Random reaction rates in the interval (0.5, 1)
+        connectivity_list.append(connectivity)
+        reaction_rates_list.append(reaction_rates)
+
+        S0 = np.random.rand(N_s)
+        X0 = np.random.rand(N_c)
+        X0 /= np.sum(X0)  # Normalize only the chemicals
+        S0_list.append(S0)
+        X0_list.append(X0)
+
+    # Prepare arguments for parallel processing
+    args_list = []
+    for growth_rate in growth_rate_list:
+        stoptime = 100000 / growth_rate  # Adjust stoptime based on growth rate
+        for i in range(N_simulations):
+            args_list.append((N_s, N_c, growth_rate, reaction_rates_list[i], connectivity_list[i], S0_list[i], X0_list[i], survival_threshold, stoptime, nsteps))
+
+    # Run simulations in parallel
+    with mp.Pool(mp.cpu_count() - 2) as pool:
+        results = list(tqdm(pool.imap(worker, args_list), total=len(args_list)))
+
+    # Collect results
+    for i, growth_rate in enumerate(growth_rate_list):
+        N_surviving_species = results[i * N_simulations:(i + 1) * N_simulations]
         N_surviving_species_mean[i] = np.mean(N_surviving_species)
         N_surviving_species_std[i] = np.std(N_surviving_species) / np.sqrt(N_simulations)
 
+    # Plot results
     plt.errorbar(growth_rate_list, N_surviving_species_mean, N_surviving_species_std, capsize=10)
     plt.xlabel('Growth rate')
     plt.ylabel('Number of surviving species')
     plt.xscale('log')
-    plt.title(f"{N_s} species, {N_c} chemicals")
+    plt.title(f"{N_s} species, {N_c} chemicals, sparsity={sparsity}")
     plt.grid()
-    plt.savefig(f'src/diversityTransition/plots/diversityVsGrowthrate_{N_s}-{N_c}_stoptime_{stoptime}.png', dpi=300)
+    plt.savefig(f'src/diversityTransition/plots/diversityVsGrowthrate_{N_s}-{N_c}_sparsity_{sparsity}.png', dpi=300)
     plt.show()
 
 if __name__ == '__main__':

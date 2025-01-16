@@ -2,26 +2,9 @@ import numpy as np
 from numba import njit
 import matplotlib.pyplot as plt
 
-# @njit
-# def ode_derivatives(S, X, growth_rate, reaction_rates, connectivity):
-#     dS = growth_rate * (1 - S)  # Basic growth rate for resources
-#     dX = np.zeros_like(X)
-
-#     # Iterate over every pair of chemicals
-#     for j in range(len(X)):
-#         for k in range(len(X)):
-#             resource_index = connectivity[j, k]
-#             if resource_index >= 0:  # Check if there is a reaction using a resource
-#                 reaction_rate = reaction_rates[j, k]
-#                 reaction_term = reaction_rate * X[j] * X[k]
-#                 dS[resource_index] -= reaction_term * S[resource_index]
-#                 dX[k] += reaction_term * S[resource_index]
-
-#     return dS, dX
-
 @njit
 def ode_derivatives(S, X, growth_rate, reaction_rates, connectivity):
-    dS = growth_rate - S  # Basic growth rate for resources
+    dS = growth_rate * (1 - S)  # Basic growth rate for resources
     dX = np.zeros_like(X)
 
     # Iterate over every pair of chemicals
@@ -35,6 +18,23 @@ def ode_derivatives(S, X, growth_rate, reaction_rates, connectivity):
                 dX[k] += reaction_term
 
     return dS, dX
+
+# @njit
+# def ode_derivatives_minusS(S, X, growth_rate, reaction_rates, connectivity):
+#     dS = growth_rate - S  # Basic growth rate for resources
+#     dX = np.zeros_like(X)
+
+#     # Iterate over every pair of chemicals
+#     for j in range(len(X)):
+#         for k in range(len(X)):
+#             resource_index = connectivity[j, k]
+#             if resource_index >= 0:  # Check if there is a reaction using a resource
+#                 reaction_rate = reaction_rates[j, k]
+#                 reaction_term = reaction_rate * X[j] * X[k] * S[resource_index]
+#                 dS[resource_index] -= reaction_term
+#                 dX[k] += reaction_term
+
+#     return dS, dX
 
 
 @njit
@@ -133,6 +133,7 @@ def main():
     plt.suptitle(f'{N_s} resources, {N_c} chemicals, $\gamma$={growth_rate}, $\\alpha\in[${alpha_min},{alpha_max}$]$, sparsity={sparsity}\n{N_surviving_species} survive')
 
     plt.tight_layout()
+    plt.savefig(f'src/diversityTransition/plots/randomConnections(1-S)/N_{N_s}-{N_c}_gamma_{growth_rate}_alpha_{alpha_min}-{alpha_max}_sparsity_{sparsity}.png', dpi=300)
     plt.show()
 
 if __name__ == '__main__':
