@@ -17,7 +17,7 @@ def set_random_ICs(N_SPECIES, N_CHEMICALS, n_records):
 
 
 @njit
-def ode_derivatives(O_vals, N_vals, J, S, theta, k):
+def ode_derivatives(O_vals, N_vals, J, S, theta):
     d_Os = np.zeros_like(O_vals)
     d_Ns = np.zeros_like(N_vals)
 
@@ -28,8 +28,6 @@ def ode_derivatives(O_vals, N_vals, J, S, theta, k):
         nutrient_sum_O = 0
         for j, rate in J[i]:
             nutrient_sum_O += N_vals[j] * rate
-
-        nutrient_sum_O /= k  # special to the sum_div_K model: Having all of everything is better than all of one particular thing.
 
         # Compute dO_i/dt
         d_Os[i] = O_vals[i] * empty_frac * nutrient_sum_O - theta * O_vals[i]
@@ -43,7 +41,7 @@ def ode_derivatives(O_vals, N_vals, J, S, theta, k):
 
 
 @njit
-def ode_integrate_rk4(N_species, N_chemicals, J, S, theta, k, stoptime=100_000, nsteps=100_000, dataskip=1):
+def ode_integrate_rk4(N_species, N_chemicals, J, S, theta, stoptime=100_000, nsteps=100_000, dataskip=1):
 
     dt = stoptime / nsteps
     n_records = nsteps // dataskip + 1
@@ -56,19 +54,19 @@ def ode_integrate_rk4(N_species, N_chemicals, J, S, theta, k, stoptime=100_000, 
     record_idx = 1
 
     for i in range(nsteps):
-        k1_Os, k1_Ns = ode_derivatives(current_Os, current_Ns, J, S, theta, k)
+        k1_Os, k1_Ns = ode_derivatives(current_Os, current_Ns, J, S, theta)
 
         O_temp = current_Os + 0.5 * dt * k1_Os
         N_temp = current_Ns + 0.5 * dt * k1_Ns
-        k2_Os, k2_Ns = ode_derivatives(O_temp, N_temp, J, S, theta, k)
+        k2_Os, k2_Ns = ode_derivatives(O_temp, N_temp, J, S, theta)
 
         O_temp = current_Os + 0.5 * dt * k2_Os
         N_temp = current_Ns + 0.5 * dt * k2_Ns
-        k3_Os, k3_Ns = ode_derivatives(O_temp, N_temp, J, S, theta, k)
+        k3_Os, k3_Ns = ode_derivatives(O_temp, N_temp, J, S, theta)
 
         O_temp = current_Os + dt * k3_Os
         N_temp = current_Ns + dt * k3_Ns
-        k4_Os, k4_Ns = ode_derivatives(O_temp, N_temp, J, S, theta, k)
+        k4_Os, k4_Ns = ode_derivatives(O_temp, N_temp, J, S, theta)
 
         current_Os = current_Os + (dt / 6) * (k1_Os + 2 * k2_Os + 2 * k3_Os + k4_Os)
         current_Ns = current_Ns + (dt / 6) * (k1_Ns + 2 * k2_Ns + 2 * k3_Ns + k4_Ns)
@@ -123,7 +121,7 @@ def main():
     colors = plt.cm.rainbow(np.linspace(0, 1, N_species))
 
     for sim in tqdm(range(N_sims)):
-        T, Os, Ns = ode_integrate_rk4(N_species, N_chemicals, J, S, theta, k, N_steps, N_steps, dataskip)
+        T, Os, Ns = ode_integrate_rk4(N_species, N_chemicals, J, S, theta, N_steps, N_steps, dataskip)
         surviving_counts = np.sum(Os > survival_threshold, axis=0)
         for i in range(N_species):
             axs[sim].plot(T, Os[i, :], label=f'Species {i+1}', c=colors[i % len(colors)])  # , marker='.', linestyle=''
@@ -136,7 +134,7 @@ def main():
 
     plt.suptitle(f'{N_species} species, {N_chemicals} chemicals, {k=}, $\\theta$={theta}, lim_rate={lower_lim_rate}')
     # plt.legend()
-    plt.savefig(f'src/shimadaModelMeanField/plots/sum_div_K_Jrates/N_{N_species}-{N_chemicals}_k_{k}_theta_{theta}_{time.time()}.png', dpi=300)
+    plt.savefig(f'src/shimadaModelMeanField/plots/Jrates/N_{N_species}-{N_chemicals}_k_{k}_theta_{theta}_{time.time()}.png', dpi=300)
     plt.show()
 
 

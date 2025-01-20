@@ -26,3 +26,6 @@ $$
 \frac{dN_i}{dt} &= (1-N_i)\left(\sum_j O_j S_{ji} \right) - \sum_{k} \left[ O_k \left(1-\sum_mO_m\right) \frac{J_{ki} N_i}{K} \right]
 \end{align}
 $$
+
+
+K = sum(J_ij)N_j
