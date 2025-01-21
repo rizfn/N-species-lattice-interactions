@@ -88,7 +88,7 @@ def main():
     growth_rate = 0.01
     alpha_min = 0.5
     alpha_max = 1
-    sparsity = 0.8  # Fraction of the connectivity matrix that should be set to -1
+    sparsity = 0.9  # Fraction of the connectivity matrix that should be set to -1
     survival_threshold = 0.01 * 1 / N_c
 
     connectivity = np.random.randint(0, N_s, (N_c, N_c))  # Random connectivity matrix with resource indices
