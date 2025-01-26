@@ -59,7 +59,7 @@ def ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rates, connectivity, S0, X
 
         # Calculate growth rate
         pre_normalization_sum = np.sum(X)
-        growth_rate_instant = pre_normalization_sum - 1
+        growth_rate_instant = (pre_normalization_sum - 1) / dt
 
         # Normalize only the chemicals
         X /= pre_normalization_sum
@@ -73,7 +73,7 @@ def ode_integrate_rk4(N_s, N_c, growth_rate, reaction_rates, connectivity, S0, X
 
     return T, S_vals, X_vals, growth_rates
 
-def plot_network(ax, surviving_species, mean_X_vals, connectivity, reaction_rates, N_s):
+def plot_network(ax, surviving_species, mean_X_vals, connectivity, reaction_rates, N_s, colors):
     G = nx.DiGraph()
 
     # Add nodes with sizes related to their mean abundance
@@ -96,8 +96,10 @@ def plot_network(ax, surviving_species, mean_X_vals, connectivity, reaction_rate
     cmap = plt.get_cmap('tab20', N_s)
     norm = mcolors.BoundaryNorm(boundaries=range(N_s+1), ncolors=N_s)
 
-    # Draw the network with the new edge colors
-    nx.draw(G, pos, with_labels=True, node_size=sizes, width=weights, edge_color=edge_colors, edge_cmap=cmap, edge_vmin=0, edge_vmax=N_s-1, node_color='skyblue', font_size=10, font_color='black')
+    # Draw the network with the new edge colors and node outlines
+    node_edge_colors = [colors[node] for node in G.nodes]
+    node_colors = [(r, g, b, 0.2) for r, g, b, _ in node_edge_colors]
+    nx.draw(G, pos, with_labels=True, node_size=sizes, width=weights, edge_color=edge_colors, edge_cmap=cmap, edge_vmin=0, edge_vmax=N_s-1, node_color=node_colors, edgecolors=node_edge_colors, font_size=10, font_color='black')
     ax.set_title('Network of Surviving Species')
 
 def run_simulation(growth_rate, stoptime, nsteps, connectivity, reaction_rates, S0, X0, N_s, N_c, dataskip, output_dir):
@@ -127,7 +129,7 @@ def run_simulation(growth_rate, stoptime, nsteps, connectivity, reaction_rates, 
 
     # Plot the network of surviving species
     surviving_species = np.where(mean_X_vals > 0.01 * 1 / N_c)[0]
-    plot_network(axs[1], surviving_species, mean_X_vals, connectivity, reaction_rates, N_s)
+    plot_network(axs[1], surviving_species, mean_X_vals, connectivity, reaction_rates, N_s, colors)
 
     plt.tight_layout()
     os.makedirs(output_dir, exist_ok=True)
@@ -140,7 +142,7 @@ def main():
     N_c = 100
     alpha_min = 0.5
     alpha_max = 1
-    sparsity = 0.95  # Fraction of the connectivity matrix that should be set to -1
+    sparsity = 0.99  # Fraction of the connectivity matrix that should be set to -1
 
     connectivity = np.random.randint(0, N_s, (N_c, N_c))  # Random connectivity matrix with resource indices
     mask = np.random.rand(N_c, N_c) < sparsity
