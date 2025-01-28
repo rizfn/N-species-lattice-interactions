@@ -142,7 +142,7 @@ def main():
     N_c = 100
     alpha_min = 0.5
     alpha_max = 1
-    sparsity = 0.99  # Fraction of the connectivity matrix that should be set to -1
+    sparsity = 0.9  # Fraction of the connectivity matrix that should be set to -1
 
     connectivity = np.random.randint(0, N_s, (N_c, N_c))  # Random connectivity matrix with resource indices
     mask = np.random.rand(N_c, N_c) < sparsity
