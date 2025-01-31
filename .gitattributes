@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Make visualizations show up in linguist
+docs/visualizations/* -linguist-documentation

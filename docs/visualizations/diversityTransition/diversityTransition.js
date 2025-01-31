@@ -75,7 +75,7 @@ async function loadData() {
     });
 
     // Add the present-time line
-    let presentTime = timeseries[800].time;
+    let presentTime = timeseries[999].time;
     const presentTimeLine = timeseriesSvg.append('line')
         .attr('x1', x(presentTime))
         .attr('x2', x(presentTime))
@@ -126,9 +126,18 @@ async function loadData() {
         drawNetworkDiagram(presentTime);
     });
 
+    // Determine the maximum value in the connectivity matrix for the color scale
+    const N_resources = d3.max(connectivityMatrix.flat());
 
-    // Function to draw the network diagram
+    const resourcesColorScale = d3.scaleSequential()
+    .domain([0, N_resources])
+    // .interpolator(d3.interpolateRainbow);
+    .interpolator(d3.interpolateRgb("purple", "orange"));
+
+
     function drawNetworkDiagram(presentTime) {
+        const N_resources = d3.max(connectivityMatrix.flat());
+
         const survivalThreshold = 0.01 / chemicals.length;
         const closestTime = timeseries.reduce((prev, curr) => Math.abs(curr.time - presentTime) < Math.abs(prev.time - presentTime) ? curr : prev);
         const currentData = timeseries.find(d => d.time === closestTime.time);
@@ -148,93 +157,168 @@ async function loadData() {
                     links.push({
                         source: `chemical${source}`,
                         target: `chemical${target}`,
-                        weight: 2 * Math.pow(reactionRatesMatrix[source][target], 2),
+                        weight: 5 * Math.pow(reactionRatesMatrix[source][target], 2),
                         color: connectivityMatrix[source][target]
                     });
                 }
             });
         });
 
-        // Clear previous network diagram
-        d3.select('#network-diagram').remove();
+        // Create a new SVG for the network diagram if it doesn't exist
+        let networkSvg = d3.select('#network-diagram');
+        if (networkSvg.empty()) {
+            networkSvg = d3.select('body').append('svg')
+                .attr('id', 'network-diagram')
+                .attr('width', "49vw")
+                .attr('height', "100vh")
+                .append('g')
+                .attr('transform', `translate(${timeseriesSvgMargin.left}, ${timeseriesSvgMargin.top})`);
 
-        // Create a new SVG for the network diagram
-        const networkSvg = d3.select('body').append('svg')
-            .attr('id', 'network-diagram')
-            .attr('width', "49vw")
-            .attr('height', "100vh")
-            .append('g')
-            .attr('transform', `translate(${timeseriesSvgMargin.left}, ${timeseriesSvgMargin.top})`);
+            // Define arrow marker
+            networkSvg.append('defs').append('marker')
+                .attr('id', 'arrow')
+                .attr('viewBox', '0 -5 10 10')
+                .attr('refX', 10)
+                .attr('refY', 0)
+                .attr('markerWidth', 6)
+                .attr('markerHeight', 6)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M0,-4L10,0L0,4')
+                .attr('fill', 'black');
+        } else {
+            // Ensure defs and marker are present
+            if (networkSvg.select('defs').empty()) {
+                networkSvg.append('defs').append('marker')
+                    .attr('id', 'arrow')
+                    .attr('viewBox', '0 -5 10 10')
+                    .attr('refX', 10)
+                    .attr('refY', 0)
+                    .attr('markerWidth', 6)
+                    .attr('markerHeight', 6)
+                    .attr('orient', 'auto')
+                    .append('path')
+                    .attr('d', 'M0,-5L10,0L0,5')
+                    .attr('fill', 'black');
+            }
+        }
 
-        const simulation = d3.forceSimulation(nodes)
-            .force('link', d3.forceLink(links).id(d => d.id).distance(100))
-            .force('charge', d3.forceManyBody().strength(-300))
-            .force('center', d3.forceCenter(width / 2, height / 2));
+        const radius = Math.min(width, height) / 2;
+        const angleStep = (2 * Math.PI) / nodes.length;
 
-        const link = networkSvg.append('g')
-            .selectAll('line')
-            .data(links)
-            .enter().append('line')
-            .attr('stroke-width', d => d.weight)
-            .attr('stroke', d => colorScale(d.color));
+        nodes.forEach((node, index) => {
+            node.x = width / 2 + radius * Math.cos(index * angleStep);
+            node.y = height / 2 + radius * Math.sin(index * angleStep);
+        });
 
-        const node = networkSvg.append('g')
-            .selectAll('circle')
-            .data(nodes)
-            .enter().append('circle')
-            .attr('r', d => d.size)
+        // Update nodes
+        const nodeSelection = networkSvg.selectAll('circle')
+            .data(nodes, d => d.id);
+
+        nodeSelection.enter().append('circle')
+            .attr('r', 0)
             .attr('fill', d => colorScale(chemicals.indexOf(d.id)))
             .attr('stroke', 'black')
             .attr('stroke-width', 1.5)
-            .attr('cursor', 'grab')
-            .call(d3.drag()
-                .on('start', dragstarted)
-                .on('drag', dragged)
-                .on('end', dragended));
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y)
+            .transition()
+            .duration(1000)
+            .attr('r', d => d.size);
 
-        node.append('title')
-            .text(d => d.id);
+        nodeSelection.transition()
+            .duration(1000)
+            .attr('r', d => d.size)
+            .attr('cx', d => d.x)
+            .attr('cy', d => d.y);
 
-        simulation
-            .nodes(nodes)
-            .on('tick', ticked);
+        nodeSelection.exit().transition()
+            .duration(1000)
+            .attr('r', 0)
+            .remove();
 
-        simulation.force('link')
-            .links(links);
+        // Update links
+        const linkSelection = networkSvg.selectAll('line')
+            .data(links, d => `${d.source}-${d.target}`);
 
-        function ticked() {
-            link
-                .attr('x1', d => d.source.x)
-                .attr('y1', d => d.source.y)
-                .attr('x2', d => d.target.x)
-                .attr('y2', d => d.target.y);
+        linkSelection.enter().append('line')
+            .attr('marker-end', 'url(#arrow)')
+            .attr('x1', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(targetNode.y - sourceNode.y, targetNode.x - sourceNode.x);
+                return sourceNode.x + sourceNode.size * Math.cos(angle);
+            })
+            .attr('y1', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(targetNode.y - sourceNode.y, targetNode.x - sourceNode.x);
+                return sourceNode.y + sourceNode.size * Math.sin(angle);
+            })
+            .attr('x2', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(sourceNode.y - targetNode.y, sourceNode.x - targetNode.x);
+                return sourceNode.x + sourceNode.size * Math.cos(angle);
+            })
+            .attr('y2', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(sourceNode.y - targetNode.y, sourceNode.x - targetNode.x);
+                return sourceNode.y + sourceNode.size * Math.sin(angle);
+            })
+            .transition()
+            .duration(1000)
+            .attr('stroke-width', d => d.weight)
+            .attr('stroke', d => resourcesColorScale(d.color))
+            .attr('x2', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(sourceNode.y - targetNode.y, sourceNode.x - targetNode.x);
+                return targetNode.x + targetNode.size * Math.cos(angle);
+            })
+            .attr('y2', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(sourceNode.y - targetNode.y, sourceNode.x - targetNode.x);
+                return targetNode.y + targetNode.size * Math.sin(angle);
+            });
 
-            node
-                .attr('cx', d => d.x)
-                .attr('cy', d => d.y);
-        }
+        linkSelection.transition()
+            .duration(1000)
+            .attr('stroke-width', d => d.weight)
+            .attr('x1', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(targetNode.y - sourceNode.y, targetNode.x - sourceNode.x);
+                return sourceNode.x + sourceNode.size * Math.cos(angle);
+            })
+            .attr('y1', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(targetNode.y - sourceNode.y, targetNode.x - sourceNode.x);
+                return sourceNode.y + sourceNode.size * Math.sin(angle);
+            })
+            .attr('x2', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(sourceNode.y - targetNode.y, sourceNode.x - targetNode.x);
+                return targetNode.x + targetNode.size * Math.cos(angle);
+            })
+            .attr('y2', d => {
+                const sourceNode = nodes.find(n => n.id === d.source);
+                const targetNode = nodes.find(n => n.id === d.target);
+                const angle = Math.atan2(sourceNode.y - targetNode.y, sourceNode.x - targetNode.x);
+                return targetNode.y + targetNode.size * Math.sin(angle);
+            });
 
-        function dragstarted(event, d) {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
-
-        function dragged(event, d) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
-
-        function dragended(event, d) {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
+        linkSelection.exit().transition()
+            .duration(1000)
+            .attr('stroke-width', 0)
+            .remove();
     }
 
     // Initial draw of the network diagram
     drawNetworkDiagram(presentTime);
-
-
 
 })();
