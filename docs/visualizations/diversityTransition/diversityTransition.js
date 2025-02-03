@@ -136,7 +136,6 @@ async function loadData() {
 
 
     function drawNetworkDiagram(presentTime) {
-        const N_resources = d3.max(connectivityMatrix.flat());
 
         const survivalThreshold = 0.01 / chemicals.length;
         const closestTime = timeseries.reduce((prev, curr) => Math.abs(curr.time - presentTime) < Math.abs(prev.time - presentTime) ? curr : prev);

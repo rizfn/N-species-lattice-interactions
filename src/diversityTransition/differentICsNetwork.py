@@ -120,7 +120,7 @@ def main():
     alpha_min = 0.5
     alpha_max = 1
     sparsity = 0.9  # Fraction of the connectivity matrix that should be set to -1
-    gamma = 0.1
+    gamma = 100
     stoptime = 10_000_000
     nsteps = 10_000_000
     dataskip = 100
