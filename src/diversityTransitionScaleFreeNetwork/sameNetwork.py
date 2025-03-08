@@ -137,11 +137,11 @@ def run_simulation(growth_rate, stoptime, nsteps, connectivity, reaction_rates, 
     plt.close()
 
 def main():
-    N_s = 10
+    N_s = 50
     N_c = 100
     alpha_min = 0.5
     alpha_max = 1
-    power_law_exponent = 1.5  # Exponent for the power-law distribution
+    power_law_exponent = 2.5  # Exponent for the power-law distribution
 
     connectivity = np.full((N_c, N_c), -1)
     degrees = np.random.pareto(power_law_exponent - 1, N_c) + 1  # Power-law distribution for degrees
