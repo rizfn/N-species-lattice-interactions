@@ -21,9 +21,10 @@ constexpr int DEFAULT_L = 256;          // side length of the square lattice
 constexpr int DEFAULT_N_SPECIES = 200;  // number of species
 constexpr int DEFAULT_N_CHEMICALS = 50; // number of chemicals
 constexpr int DEFAULT_N_RUNS = 4;       // number of parallel runs
-constexpr int DEFAULT_K = 2;            // number of necessary resources  (NOTE: LIMITS ON K DUE TO MUTUALLY EXCLUSIVE INTAKE/OUTTAKE CHEMICALS)
-constexpr double DEFAULT_D = 1.0f;      // diffusion constant
-constexpr double DEFAULT_SIGMA = 1.0f;  // soil filling rate
+constexpr int DEFAULT_K_IN = 2;            // number of necessary resources  (NOTE: LIMITS ON K DUE TO MUTUALLY EXCLUSIVE INTAKE/OUTTAKE CHEMICALS)
+constexpr int DEFAULT_K_OUT = 4;           // number of secreted resources  (NOTE: LIMITS ON K DUE TO MUTUALLY EXCLUSIVE INTAKE/OUTTAKE CHEMICALS)
+constexpr double DEFAULT_D = 0.1;      // diffusion constant
+constexpr double DEFAULT_SIGMA = 1.0;  // soil filling rate
 
 constexpr int RECORDING_SKIP = 10;
 
@@ -56,15 +57,30 @@ std::pair<int, int> get_random_neighbour(std::pair<int, int> c, int L, std::mt19
 
 std::vector<std::vector<int>> init_bacteria_lattice(int L, int N_SPECIES, std::mt19937 &gen)
 {
-    std::uniform_int_distribution<> dis_site(0, N_SPECIES + 1); // Include SOIL in the distribution
+    std::uniform_int_distribution<> dis_bacteria(2, N_SPECIES + 1); // Bacteria indexed from 2
     std::vector<std::vector<int>> bacteria_lattice(L, std::vector<int>(L));
+
+    int total_sites = L * L;
+    int soil_sites = total_sites / 3; // Approximately one-third of the sites as soil
+    int bacteria_sites = total_sites - soil_sites;
+
+    // Create a vector with the desired number of soil and bacteria sites
+    std::vector<int> sites(total_sites, 0);
+    std::fill(sites.begin(), sites.begin() + soil_sites, SOIL);
+    std::generate(sites.begin() + soil_sites, sites.end(), [&]() { return dis_bacteria(gen); });
+
+    // Shuffle the sites to randomize their positions
+    std::shuffle(sites.begin(), sites.end(), gen);
+
+    // Fill the lattice with the shuffled sites
     for (int i = 0; i < L; ++i)
     {
         for (int j = 0; j < L; ++j)
         {
-            bacteria_lattice[i][j] = dis_site(gen);
+            bacteria_lattice[i][j] = sites[i * L + j];
         }
     }
+
     return bacteria_lattice;
 }
 
@@ -84,7 +100,7 @@ std::vector<std::vector<std::vector<float>>> init_chemical_lattice(int L, int N_
     return chemical_lattice;
 }
 
-std::pair<std::map<int, std::vector<int>>, std::map<int, std::vector<int>>> init_J_S_maps(int N_SPECIES, int N_CHEMICALS, int K, std::mt19937 &gen)
+std::pair<std::map<int, std::vector<int>>, std::map<int, std::vector<int>>> init_J_S_maps(int N_SPECIES, int N_CHEMICALS, int K_IN, int K_OUT, std::mt19937 &gen)
 {
     std::map<int, std::vector<int>> J;
     std::map<int, std::vector<int>> S;
@@ -96,8 +112,8 @@ std::pair<std::map<int, std::vector<int>>, std::map<int, std::vector<int>>> init
 
         std::shuffle(possible_indices.begin(), possible_indices.end(), gen); // Shuffle the indices
 
-        J[i] = std::vector<int>(possible_indices.begin(), possible_indices.begin() + K);
-        S[i] = std::vector<int>(possible_indices.begin() + K, possible_indices.begin() + 2 * K);
+        J[i] = std::vector<int>(possible_indices.begin(), possible_indices.begin() + K_IN);
+        S[i] = std::vector<int>(possible_indices.begin() + K_IN, possible_indices.begin() + K_IN + K_OUT);
     }
 
     return {J, S};
@@ -137,7 +153,6 @@ void update_bacteria(std::vector<std::vector<int>> &bacteria_lattice,
                      int L,
                      double THETA,
                      double SIGMA,
-                     int K,
                      std::uniform_int_distribution<> &dis_l,
                      std::uniform_real_distribution<> &dis_real,
                      std::mt19937 &gen)
@@ -219,7 +234,22 @@ void update_bacteria(std::vector<std::vector<int>> &bacteria_lattice,
     }
 }
 
-void run(std::ofstream &file, int L, int N_SPECIES, int N_CHEMICALS, double THETA, double SIGMA, int K, int STEPS_PER_LATTICEPOINT)
+void save_matrix(const std::map<int, std::vector<int>> &matrix, const std::string &filename)
+{
+    std::ofstream file(filename);
+    for (const auto &pair : matrix)
+    {
+        file << pair.first;
+        for (int value : pair.second)
+        {
+            file << "," << value;
+        }
+        file << "\n";
+    }
+    file.close();
+}
+
+void run(int L, int N_SPECIES, int N_CHEMICALS, double THETA, double SIGMA, int K_IN, int K_OUT, int STEPS_PER_LATTICEPOINT, double D, const std::string &dirPath, int run_idx)
 {
     std::random_device rd;
     std::mt19937 gen(rd());
@@ -228,8 +258,30 @@ void run(std::ofstream &file, int L, int N_SPECIES, int N_CHEMICALS, double THET
 
     std::vector<std::vector<int>> bacteria_lattice = init_bacteria_lattice(L, N_SPECIES, gen);
     std::vector<std::vector<std::vector<float>>> chemical_lattice = init_chemical_lattice(L, N_CHEMICALS);
-    auto [J, S] = init_J_S_maps(N_SPECIES, N_CHEMICALS, K, gen);
+    auto [J, S] = init_J_S_maps(N_SPECIES, N_CHEMICALS, K_IN, K_OUT, gen);
     std::vector<int> BACTERIA = init_bacteria(N_SPECIES);
+
+    // Save J and S matrices
+    std::ostringstream jFilePathStream, sFilePathStream;
+    jFilePathStream << dirPath << "/J_" << run_idx << ".csv";
+    sFilePathStream << dirPath << "/S_" << run_idx << ".csv";
+    save_matrix(J, jFilePathStream.str());
+    save_matrix(S, sFilePathStream.str());
+
+    // Open timeseries file
+    std::ostringstream timeseriesFilePathStream;
+    timeseriesFilePathStream << dirPath << "/timeseries_" << run_idx << ".csv";
+    std::ofstream timeseriesFile(timeseriesFilePathStream.str());
+    timeseriesFile << "step,empty,soil,";
+    for (int i = 2; i <= N_SPECIES + 1; ++i)
+    {
+        timeseriesFile << "bacteria" << i - 1;
+        if (i != N_SPECIES + 1)
+        {
+            timeseriesFile << ",";
+        }
+    }
+    timeseriesFile << "\n";
 
     int i = 0; // indexing for recording steps
 
@@ -237,9 +289,9 @@ void run(std::ofstream &file, int L, int N_SPECIES, int N_CHEMICALS, double THET
     {
         for (int i = 0; i < L * L; ++i)
         {
-            update_bacteria(bacteria_lattice, chemical_lattice, J, S, BACTERIA, L, THETA, SIGMA, K, dis_l, dis_real, gen);
+            update_bacteria(bacteria_lattice, chemical_lattice, J, S, BACTERIA, L, THETA, SIGMA, dis_l, dis_real, gen);
         }
-        diffuseChemicals(chemical_lattice, L, DEFAULT_D);
+        diffuseChemicals(chemical_lattice, L, D);
 
         if (step % RECORDING_SKIP == 0)
         {
@@ -251,15 +303,18 @@ void run(std::ofstream &file, int L, int N_SPECIES, int N_CHEMICALS, double THET
                     ++counts[cell];
                 }
             }
-            file << step;
+            timeseriesFile << step;
             for (int j = 0; j < counts.size(); ++j)
             {
-                file << "," << static_cast<double>(counts[j]) / (L * L);
+                timeseriesFile << "," << static_cast<double>(counts[j]) / (L * L);
             }
-            file << "\n";
+            timeseriesFile << "\n";
         }
     }
+
+    timeseriesFile.close();
 }
+
 
 int main(int argc, char *argv[])
 {
@@ -267,7 +322,8 @@ int main(int argc, char *argv[])
     int N_CHEMICALS = DEFAULT_N_CHEMICALS;
     int L = DEFAULT_L;
     double THETA = DEFAULT_THETA;
-    int K = DEFAULT_K;
+    int K_IN = DEFAULT_K_IN;
+    int K_OUT = DEFAULT_K_OUT;
     int STEPS_PER_LATTICEPOINT = DEFAULT_STEPS_PER_LATTICEPOINT;
     int N_runs = DEFAULT_N_RUNS;
     double D = DEFAULT_D;
@@ -282,15 +338,17 @@ int main(int argc, char *argv[])
     if (argc > 4)
         THETA = std::stod(argv[4]);
     if (argc > 5)
-        K = std::stoi(argv[5]);
+        K_IN = std::stoi(argv[5]);
     if (argc > 6)
-        STEPS_PER_LATTICEPOINT = std::stoi(argv[6]);
+        K_OUT = std::stoi(argv[6]);
     if (argc > 7)
-        N_runs = std::stoi(argv[7]);
+        STEPS_PER_LATTICEPOINT = std::stoi(argv[7]);
     if (argc > 8)
-        D = std::stod(argv[8]);
+        N_runs = std::stoi(argv[8]);
     if (argc > 9)
-        SIGMA = std::stod(argv[9]);
+        D = std::stod(argv[9]);
+    if (argc > 10)
+        SIGMA = std::stod(argv[10]);
 
     std::string exePath = argv[0];
     std::string exeDir = std::filesystem::path(exePath).parent_path().string();
@@ -299,27 +357,14 @@ int main(int argc, char *argv[])
 
     for (int run_idx = 0; run_idx < N_runs; ++run_idx)
     {
-        threads.push_back(std::thread([run_idx, N_SPECIES, N_CHEMICALS, L, THETA, SIGMA, D, K, STEPS_PER_LATTICEPOINT, exeDir]()
+        threads.push_back(std::thread([run_idx, N_SPECIES, N_CHEMICALS, L, THETA, SIGMA, D, K_IN, K_OUT, STEPS_PER_LATTICEPOINT, exeDir]()
                                       {
-                std::ostringstream filePathStream;
+                std::ostringstream dirPathStream;
+                dirPathStream << exeDir << "/outputs/timeseries/N_" << N_SPECIES << "-" << N_CHEMICALS << "_L_" << L << "_theta_" << THETA << "_K_IN_" << K_IN << "_K_OUT_" << K_OUT << "_D_" << D << "_sigma_" << SIGMA;
+                std::string dirPath = dirPathStream.str();
+                std::filesystem::create_directories(dirPath);
 
-                filePathStream << exeDir << "/outputs/timeseries/N_" << N_SPECIES << "-" << N_CHEMICALS << "_L_" << L << "_theta_" << THETA << "_K_" << K << "_D_" << D << "_sigma_" << SIGMA << "_" << run_idx << ".csv";
-                std::string filePath = filePathStream.str();
-
-                std::ofstream file;
-                file.open(filePath);
-                file << "step,empty,soil,";
-                for (int i = 2; i <= N_SPECIES + 1; ++i)
-                {
-                    file << "bacteria" << i - 1;
-                    if (i != N_SPECIES + 1)
-                    {
-                        file << ",";
-                    }
-                }
-                file << "\n";
-                run(file, L, N_SPECIES, N_CHEMICALS, THETA, SIGMA, K, STEPS_PER_LATTICEPOINT);
-                file.close(); }));
+                run(L, N_SPECIES, N_CHEMICALS, THETA, SIGMA, K_IN, K_OUT, STEPS_PER_LATTICEPOINT, D, dirPath, run_idx); }));
     }
 
     for (std::thread &t : threads)
