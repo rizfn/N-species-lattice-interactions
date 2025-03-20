@@ -1,5 +1,6 @@
 .vscode
 src/venv_nspec
+src/andModelSoil/plots/latticeAnim/*.gif
 **.exe
 **/outputs/*
 src/randomMatrix2D/plots/latticeAnim/*.gif
