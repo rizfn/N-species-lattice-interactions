@@ -213,21 +213,18 @@ void update_bacteria(std::vector<std::vector<int>> &bacteria_lattice,
                     min_chemical_concentration = std::min(min_chemical_concentration, concentration);
                 }
 
-                if (min_chemical_concentration > 0.0f)
+                // Set the replication probability to the minimum chemical concentration
+                float replicationProbability = min_chemical_concentration;
+
+                // Consume the chemicals
+                for (int chemical : J[i])
                 {
-                    // Set the replication probability to the minimum chemical concentration
-                    float replicationProbability = min_chemical_concentration;
+                    chemical_lattice[chemical][new_site.first][new_site.second] -= min_chemical_concentration;
+                }
 
-                    // Consume the chemicals
-                    for (int chemical : J[i])
-                    {
-                        chemical_lattice[chemical][new_site.first][new_site.second] = 0.0f;
-                    }
-
-                    if (dis_real(gen) < replicationProbability)
-                    {
-                        bacteria_lattice[site.first][site.second] = BACTERIA[i];
-                    }
+                if (dis_real(gen) < replicationProbability)
+                {
+                    bacteria_lattice[site.first][site.second] = BACTERIA[i];
                 }
             }
         }

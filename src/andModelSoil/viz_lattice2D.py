@@ -38,13 +38,11 @@ def plot_network(ax, lattice, J, S, species_colors, chemical_colors, species_map
     S_survivors = {species: S[species-2] for species in S if species in surviving_species}
 
     # Add edges based on J and S dictionaries
-    edge_colors = []
     for secreting_species, secreted_chemical_list in S_survivors.items():
         for chemical in secreted_chemical_list:
             for consuming_species, consuming_chemical_list in J_survivors.items():
                 if chemical in consuming_chemical_list:
-                    G.add_edge(secreting_species, consuming_species, weight=1)
-                    edge_colors.append(chemical_colors[chemical])
+                    G.add_edge(secreting_species, consuming_species, weight=1, color=chemical_colors[chemical])
     
     pos = nx.circular_layout(G)  # Use circular layout
     sizes = [G.nodes[node]['size'] for node in G.nodes]
@@ -52,6 +50,7 @@ def plot_network(ax, lattice, J, S, species_colors, chemical_colors, species_map
 
     # Use the same colors for the network nodes as the lattice
     node_colors = [species_colors[species_mapping[node]] for node in G.nodes]
+    edge_colors = [G[u][v]['color'] for u, v in G.edges]
     nx.draw(G, pos, ax=ax, with_labels=True, node_size=sizes, width=weights, edge_color=edge_colors, node_color=node_colors, font_size=10, font_color='black')
     ax.set_title('Network of Surviving Species')
 
@@ -79,7 +78,7 @@ def main():
     N_s = 200  # Number of species
     N_c = 50  # Number of chemicals
     L = 512
-    theta = 0.144
+    theta = 0.1446
     K_in = 2
     K_out = 4
     D = 0.1
