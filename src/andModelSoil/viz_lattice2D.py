@@ -78,7 +78,7 @@ def main():
     N_s = 200  # Number of species
     N_c = 50  # Number of chemicals
     L = 512
-    theta = 0.1446
+    theta = 0.146
     K_in = 2
     K_out = 4
     D = 0.1
@@ -121,7 +121,7 @@ def main():
     # Recolor the lattice for the first frame
     recolored_lattice = np.copy(lattice)
     for species, mapped_index in species_mapping.items():
-        recolored_lattice[lattice == species] = mapped_index + 2
+        recolored_lattice[lattice == species] = mapped_index
 
     fig, (ax_lattice, ax_network) = plt.subplots(1, 2, figsize=(20, 10), dpi=200)
     fig.suptitle(f'{N_surviving} species, $\\theta$={theta}')
