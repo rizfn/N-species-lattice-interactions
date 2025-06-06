@@ -6,6 +6,8 @@ import networkx as nx
 import matplotlib.colors as mcolors
 import math
 
+# UPDATE PLOT_NETWORK FUNCTION to work, from lattice2D viz
+
 def plot_network(ax, surviving_species, J, S, colors):
     G = nx.DiGraph()
 
@@ -111,3 +113,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+## CHECK IF THEY'RE EATING/SECRETING THE SAME THINGS

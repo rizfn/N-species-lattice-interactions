@@ -78,7 +78,7 @@ def main():
     N_s = 200  # Number of species
     N_c = 50  # Number of chemicals
     L = 512
-    theta = 0.146
+    theta = 0.1456
     K_in = 2
     K_out = 4
     D = 0.1
