@@ -1,3 +1,6 @@
+*
+!*.*
+!*/
 .vscode
 src/venv_nspec
 src/andModelSoil/plots/latticeAnim/*.gif
