@@ -10,9 +10,10 @@ def parse_lattice(s):
 def viz_final_lattice(N, L, theta, D, S):
     filepath = f"src/microbialMatDirected/outputs/chainLatticeSnapshots/N_{N}_L_{L}_theta_{theta}_D_{D}_S_{S}.tsv"
     
-    # Define colors: white for empty, then distinct colors for each species
-    colors = ['white', 'red', 'blue', 'green', 'orange', 'purple']
-    cmap = mcolors.ListedColormap(colors[:N+1])  # +1 for empty (0)
+    # Create custom colormap: white for empty (0), plasma for species (1-N)
+    plasma_colors = plt.cm.plasma(np.linspace(0, 1, N))
+    colors = np.vstack([[1, 1, 1, 1], plasma_colors])  # White + plasma colors
+    cmap = mcolors.ListedColormap(colors)
     norm = mcolors.Normalize(vmin=0, vmax=N)
     
     # Read the file and get the last lattice
@@ -46,9 +47,10 @@ def viz_final_lattice(N, L, theta, D, S):
 def viz_final_lattice_directedFlow(N, L, theta, D, S, v):
     filepath = f"src/microbialMatDirected/outputs/chainDirectedFlowSnapshots/N_{N}_L_{L}_theta_{theta}_D_{D}_v_{v}_S_{S}.tsv"
     
-    # Define colors: white for empty, then distinct colors for each species
-    colors = ['white', 'red', 'blue', 'green', 'orange', 'purple']
-    cmap = mcolors.ListedColormap(colors[:N+1])  # +1 for empty (0)
+    # Create custom colormap: white for empty (0), plasma for species (1-N)
+    plasma_colors = plt.cm.plasma(np.linspace(0, 1, N))
+    colors = np.vstack([[1, 1, 1, 1], plasma_colors])  # White + plasma colors
+    cmap = mcolors.ListedColormap(colors)
     norm = mcolors.Normalize(vmin=0, vmax=N)
     
     # Read the file and get the last lattice
@@ -82,9 +84,10 @@ def viz_final_lattice_directedFlow(N, L, theta, D, S, v):
 def viz_final_lattice_chemotaxis_flow(N, L, theta, D, S, v):
     filepath = f"src/microbialMatDirected/outputs/chainChemotaxisFlowLattice/N_{N}_L_{L}_theta_{theta}_D_{D}_v_{v}_S_{S}.tsv"
     
-    # Define colors: white for empty, then distinct colors for each species
-    colors = ['white', 'red', 'blue', 'green', 'orange', 'purple']
-    cmap = mcolors.ListedColormap(colors[:N+1])  # +1 for empty (0)
+    # Create custom colormap: white for empty (0), plasma for species (1-N)
+    plasma_colors = plt.cm.plasma(np.linspace(0, 1, N))
+    colors = np.vstack([[1, 1, 1, 1], plasma_colors])  # White + plasma colors
+    cmap = mcolors.ListedColormap(colors)
     norm = mcolors.Normalize(vmin=0, vmax=N)
     
     # Read the file and get the last lattice
@@ -99,7 +102,7 @@ def viz_final_lattice_chemotaxis_flow(N, L, theta, D, S, v):
     # Create the plot
     fig, ax = plt.subplots(figsize=(10, 10), dpi=150)
     img = ax.imshow(lattice, cmap=cmap, norm=norm)
-    ax.set_title(f'Final Lattice State (Step: {step})\nN={N} species chain, θ={theta}, D={D}, S={S}')
+    ax.set_title(f'Final Lattice State (Step: {step})\nN={N} species chain, θ={theta}, D={D}, S={S}, v={v}')
     
     # Add colorbar with species labels
     cbar = plt.colorbar(img, ax=ax, ticks=range(N+1))
@@ -119,4 +122,4 @@ def viz_final_lattice_chemotaxis_flow(N, L, theta, D, S, v):
 if __name__ == "__main__":
     # viz_final_lattice(2, 256, 0.01, 0.25, 100)
     # viz_final_lattice_directedFlow(3, 256, 0.01, 0.25, 100, 0.5)
-    viz_final_lattice_chemotaxis_flow(3, 256, 0.01, 0.25, 1, 0.5)
+    viz_final_lattice_chemotaxis_flow(3, 256, 0.01, 0.25, 1, 1)

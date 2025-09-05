@@ -20,7 +20,7 @@ constexpr int STEPS_PER_LATTICEPOINT = 10000;
 constexpr double THETA = 0.01; // death probability
 constexpr int L = 256;         // lattice size
 constexpr float D = 0.25f;      // diffusion constant
-constexpr float DRIFT = 0.5f;   // vertical drift parameter (0=no drift, 1=full downward flow)
+constexpr float DRIFT = 1.0f;   // vertical drift parameter
 constexpr float S = 1.0f;      // boundary condition (nutrient 0 supply rate)
 constexpr int FINAL_STEPS_TO_RECORD = 500;
 constexpr int RECORDING_SKIP = 10;
@@ -231,15 +231,16 @@ void update_bacteria(std::vector<std::vector<int>> &bacteria_lattice,
                 
                 if (nutrient_concentration > 0.0f && dis_real(gen) < nutrient_concentration)
                 {
-                    // Consume the nutrient and replicate (no secretion when reproducing)
-                    chemical_lattice[species_id][new_site.first][new_site.second] = 0.0f;
+                    // Consume max 1 unit of nutrient and replicate (no secretion when reproducing)
+                    float consumed_amount = std::min(1.0f, nutrient_concentration);
+                    chemical_lattice[species_id][new_site.first][new_site.second] = std::max(0.0f, nutrient_concentration - consumed_amount);
                     bacteria_lattice[site.first][site.second] = site_value; // replicate
                 }
                 else
                 {
                     // No reproduction, but can still consume and secrete for energy
-                    float consumed_amount = chemical_lattice[species_id][new_site.first][new_site.second];
-                    chemical_lattice[species_id][new_site.first][new_site.second] = 0.0f;
+                    float consumed_amount = std::min(1.0f, chemical_lattice[species_id][new_site.first][new_site.second]);
+                    chemical_lattice[species_id][new_site.first][new_site.second] = std::max(0.0f, chemical_lattice[species_id][new_site.first][new_site.second] - consumed_amount);
                     
                     // Secretion: species i secretes nutrient i+1 (if i < N-1) with same amount consumed
                     if (species_id < N - 1 && consumed_amount > 0.0f)
@@ -251,8 +252,8 @@ void update_bacteria(std::vector<std::vector<int>> &bacteria_lattice,
             else
             {
                 // Moving to occupied site - consume and secrete for energy only
-                float consumed_amount = chemical_lattice[species_id][new_site.first][new_site.second];
-                chemical_lattice[species_id][new_site.first][new_site.second] = 0.0f;
+                float consumed_amount = std::min(1.0f, chemical_lattice[species_id][new_site.first][new_site.second]);
+                chemical_lattice[species_id][new_site.first][new_site.second] = std::max(0.0f, chemical_lattice[species_id][new_site.first][new_site.second] - consumed_amount);
                 
                 // Secretion: species i secretes nutrient i+1 (if i < N-1) with same amount consumed
                 if (species_id < N - 1 && consumed_amount > 0.0f)
