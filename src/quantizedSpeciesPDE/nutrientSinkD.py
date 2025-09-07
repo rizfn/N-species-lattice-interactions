@@ -5,9 +5,9 @@ from tqdm import tqdm
 import os
 
 def main():
-    N_species = 4
+    N_species = 20
     D_N = 0.1
-    D_S = 0.001
+    D_S = 0.01
     x = np.linspace(0, 1, 100)
     t = np.linspace(0, 500, 1000000)  # More time steps for stability
     dt = t[1] - t[0]  # time step
@@ -17,9 +17,9 @@ def main():
     # Check stability condition
     stability_factor = D_N * dt / dx**2
     print(f"Stability factor: {stability_factor} (should be ≤ 0.5)")
-    
+
+    g = np.linspace(0.01, 1, N_species)**0.5  # Growth parameters for R_i(N) function
     # g = np.random.rand(N_species)  # Growth parameters for R_i(N) function
-    g = np.array([0.2, 0.5, 0.7, 0.8])  # Growth parameters for R_i(N) function
 
     species = np.ones((N_species, len(x)))
     # Normalize initial conditions so sum of species at each site = 1
@@ -103,13 +103,16 @@ def main():
 
     # Create animation
     fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+
+    # Generate colors from rainbow colormap
+    colors = plt.cm.rainbow(np.linspace(0, 0.9, N_species))
     
     # Initialize plots
     nutrient_line, = ax.plot([], [], 'k--', alpha=0.7, label='Nutrients')
     
     species_lines = []
     for i in range(N_species):
-        line, = ax.plot([], [], label=f'Species {i+1}')
+        line, = ax.plot([], [], color=colors[i], label=f'Species {i+1}')
         species_lines.append(line)
     
     ax.set_xlim(0, 1)
@@ -132,13 +135,13 @@ def main():
                                  interval=50, blit=True, repeat=True)
     
     plt.tight_layout()
-    os.makedirs("src/quantizedSpeciesPDE/plots/nutrientSink1D", exist_ok=True)
+    os.makedirs(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}", exist_ok=True)
     with tqdm(total=len(time_points), desc="Saving animation") as pbar:
         def progress_callback(current_frame, total_frames):
             pbar.update(1)
-        
-        anim.save(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/animation_N{N_species}_DN{D_N}_DS{D_S}.mp4", 
-                  fps=30, writer='ffmpeg', bitrate=1800, 
+
+        anim.save(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/animation.mp4",
+                  fps=30, writer='ffmpeg', bitrate=1800,
                   progress_callback=progress_callback)
     
     # Plot R_i(N) vs N for all species
@@ -146,24 +149,21 @@ def main():
     plt.figure(figsize=(10, 6))
     for i in range(N_species):
         R_curve = (g[i] * N_range) / (10**((g[i] - 1) / 0.3) + N_range)
-        plt.plot(N_range, R_curve, label=f'Species {i+1} (g={g[i]:.3f})')
+        plt.plot(N_range, R_curve, color=colors[i], label=f'Species {i+1} (g={g[i]:.3f})')
     plt.xlabel('Nutrient Concentration (N)')
     plt.ylabel('Growth Rate R_i(N)')
     plt.title('Growth Rate Functions for All Species')
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/growth_functions_N{N_species}_DN{D_N}_DS{D_S}.png")
-    
+    plt.savefig(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/growth_functions.png")
+
     # Also save final state plot
     plt.figure(figsize=(10, 6))
     plt.plot(x, nutrients, 'k--', alpha=0.7, label='Nutrients')
     
-    # Get colors for species from the default color cycle
-    colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
-    
     for i in range(N_species):
-        plt.plot(x, species[i], label=f'Species {i+1}', color=colors[i])
+        plt.plot(x, species[i], color=colors[i], label=f'Species {i+1}')
     
     # Calculate which species has max growth rate at each position
     R_final = np.zeros((N_species, len(x)))
@@ -199,7 +199,7 @@ def main():
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/final_state_N{N_species}_DN{D_N}_DS{D_S}.png")
+    plt.savefig(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/final_state.png")
 
 
 if __name__ == "__main__":
