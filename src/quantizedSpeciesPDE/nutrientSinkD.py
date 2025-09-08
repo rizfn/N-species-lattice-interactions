@@ -3,24 +3,14 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from tqdm import tqdm
 import os
+from numba import njit
 
-def main():
-    N_species = 20
-    D_N = 0.1
-    D_S = 0.01
-    x = np.linspace(0, 1, 100)
-    t = np.linspace(0, 500, 1000000)  # More time steps for stability
-    dt = t[1] - t[0]  # time step
-    dx = x[1] - x[0]  # spatial step
-    boundary_N = 1  # Boundary condition for nutrients at x=0
+
+@njit
+def run_simulation(t, x, dt, dx, D_N, D_S, boundary_N, g, N_species, save_interval):
+    """Run the main simulation loop with numba acceleration."""
     
-    # Check stability condition
-    stability_factor = D_N * dt / dx**2
-    print(f"Stability factor: {stability_factor} (should be ≤ 0.5)")
-
-    g = np.linspace(0.01, 1, N_species)**0.5  # Growth parameters for R_i(N) function
-    # g = np.random.rand(N_species)  # Growth parameters for R_i(N) function
-
+    # Initialize arrays
     species = np.ones((N_species, len(x)))
     # Normalize initial conditions so sum of species at each site = 1
     for j in range(len(x)):
@@ -28,23 +18,20 @@ def main():
         if site_total > 0:
             species[:, j] = species[:, j] / site_total
     
-    nutrients = np.zeros((len(x)))
+    nutrients = np.zeros(len(x))
     nutrients[0] = boundary_N  # Boundary condition at x=0
     nutrients[-1] = 0  # Boundary condition at x=L
     
-    # Storage for animation data (every 1 time unit)
-    save_interval = int(1.0 / dt)  # Save every 1 time unit
+    # Storage for animation data
     n_frames = len(t) // save_interval + 1
     species_history = np.zeros((n_frames, N_species, len(x)))
     nutrients_history = np.zeros((n_frames, len(x)))
-    time_points = []
     
     frame_idx = 0
     species_history[0] = species.copy()
     nutrients_history[0] = nutrients.copy()
-    time_points.append(0)
 
-    for time_idx, time in enumerate(tqdm(t, desc="Running simulation")):
+    for time_idx in range(len(t)):
         
         # Second-order derivative for diffusion (Laplacian) - nutrients
         d2nutrients_dx2 = np.zeros_like(nutrients)
@@ -62,7 +49,7 @@ def main():
         nutrient_consumption = np.sum(R_values * species, axis=0)
         
         # Update nutrients: diffusion - consumption
-        nutrients += (D_N * d2nutrients_dx2 - nutrient_consumption) * dt
+        nutrients = nutrients + (D_N * d2nutrients_dx2 - nutrient_consumption) * dt
         
         # Update each species
         for i in range(N_species):
@@ -73,33 +60,58 @@ def main():
             d2species_dx2[1:-1] = (species[i, 2:] - 2*species[i, 1:-1] + species[i, :-2]) / dx**2
             
             # Left boundary (x=0): zero-flux condition dS/dx = 0
-            # Using ghost point: S[-1] = S[1] (symmetric about boundary)
-            # d2S/dx2 = (S[1] - 2*S[0] + S[-1])/dx^2 = (S[1] - 2*S[0] + S[1])/dx^2 = 2*(S[1] - S[0])/dx^2
             d2species_dx2[0] = 2 * (species[i, 1] - species[i, 0]) / dx**2
             
             # Right boundary (x=L): zero-flux condition dS/dx = 0  
-            # Using ghost point: S[N] = S[N-2] (symmetric about boundary)
-            # d2S/dx2 = (S[N] - 2*S[N-1] + S[N-2])/dx^2 = (S[N-2] - 2*S[N-1] + S[N-2])/dx^2 = 2*(S[N-2] - S[N-1])/dx^2
             d2species_dx2[-1] = 2 * (species[i, -2] - species[i, -1]) / dx**2
             
             # Growth term with local dilution: R_i(N) * S_i - S_i * local_dilution
             growth = R_values[i] * species[i] - species[i] * local_dilution
             
             # Update species: diffusion + growth
-            species[i] += (D_S * d2species_dx2 + growth) * dt
+            species[i] = species[i] + (D_S * d2species_dx2 + growth) * dt
         
         # Maintain boundary conditions
         nutrients[0] = boundary_N  # Dirichlet BC at left (fixed source)
         nutrients[-1] = 0  # Dirichlet BC at right (sink)
         
-        # No explicit boundary update needed for species - zero-flux is built into diffusion
-
-        # Save data for animation every 1 time unit
+        # Save data for animation every save_interval steps
         if (time_idx + 1) % save_interval == 0 and frame_idx < n_frames - 1:
-            frame_idx += 1
+            frame_idx = frame_idx + 1
             species_history[frame_idx] = species.copy()
             nutrients_history[frame_idx] = nutrients.copy()
-            time_points.append(time)
+
+    return species_history[:frame_idx+1], nutrients_history[:frame_idx+1], species, nutrients
+
+
+def main():
+    N_species = 4
+    D_N = 0.1
+    D_S = 0.001
+    x = np.linspace(0, 1, 100)
+    t = np.linspace(0, 500, 1000000)  # More time steps for stability
+    dt = t[1] - t[0]  # time step
+    dx = x[1] - x[0]  # spatial step
+    boundary_N = 1  # Boundary condition for nutrients at x=0
+    
+    # Check stability condition
+    stability_factor = D_N * dt / dx**2
+    print(f"Stability factor: {stability_factor} (should be ≤ 0.5)")
+
+    # g = np.linspace(0.01, 1, N_species)**0.5  # Growth parameters for R_i(N) 
+    g = np.array([0.2, 0.5, 0.7, 0.8])
+    # g = np.random.rand(N_species)  # Growth parameters for R_i(N) function
+
+    # Storage for animation data (every 1 time unit)
+    save_interval = int(1.0 / dt)  # Save every 1 time unit
+    
+    print("Running simulation...")
+    species_history, nutrients_history, final_species, final_nutrients = run_simulation(
+        t, x, dt, dx, D_N, D_S, boundary_N, g, N_species, save_interval
+    )
+    
+    # Create time points array for animation
+    time_points = np.arange(len(species_history)) * dt * save_interval
 
     # Create animation
     fig, ax = plt.subplots(1, 1, figsize=(10, 6))
@@ -160,15 +172,15 @@ def main():
 
     # Also save final state plot
     plt.figure(figsize=(10, 6))
-    plt.plot(x, nutrients, 'k--', alpha=0.7, label='Nutrients')
+    plt.plot(x, final_nutrients, 'k--', alpha=0.7, label='Nutrients')
     
     for i in range(N_species):
-        plt.plot(x, species[i], color=colors[i], label=f'Species {i+1}')
+        plt.plot(x, final_species[i], color=colors[i], label=f'Species {i+1}')
     
     # Calculate which species has max growth rate at each position
     R_final = np.zeros((N_species, len(x)))
     for i in range(N_species):
-        R_final[i] = (g[i] * nutrients) / (10**((g[i] - 1) / 0.3) + nutrients)
+        R_final[i] = (g[i] * final_nutrients) / (10**((g[i] - 1) / 0.3) + final_nutrients)
     
     max_species_idx = np.argmax(R_final, axis=0)
     
