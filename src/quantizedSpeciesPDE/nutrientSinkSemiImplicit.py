@@ -117,21 +117,22 @@ def run_simulation(t, x, dt, dx, D_N, D_S, boundary_N, g, N_species, save_interv
 
 
 def main():
-    N_species = 4
+    N_species = 20
     D_N = 0.1
-    D_S = 0.001
+    D_S = 1e-5
     x = np.linspace(0, 1, 100)
-    t = np.linspace(0, 500, 10000)
+    t = np.linspace(0, 100000, 2000000)
     dt = t[1] - t[0]  # time step
     dx = x[1] - x[0]  # spatial step
     boundary_N = 1  # Boundary condition for nutrients at x=0
 
     # g = np.linspace(0.01, 1, N_species)**0.5  # Growth parameters for R_i(N) 
-    g = np.array([0.2, 0.5, 0.7, 0.8])
+    # g = np.array([0.2, 0.5, 0.7, 0.8])
     # g = np.random.rand(N_species)  # Growth parameters for R_i(N) function
+    g = np.linspace(0.1, 0.8, N_species)
 
     # Storage for animation data (every 1 time unit)
-    save_interval = int(1.0 / dt)  # Save every 1 time unit
+    save_interval = int(1000.0 / dt)  # Save every 1 time unit
     
     print("Running simulation...")
     species_history, nutrients_history, final_species, final_nutrients = run_simulation(
