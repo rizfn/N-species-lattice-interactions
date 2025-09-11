@@ -37,11 +37,10 @@ def run_simulation(t, x, dt, dx, D_N, D_S, boundary_N, g, N_species, save_interv
     
     # Initialize arrays
     species = np.ones((N_species, n_points))
-    # Normalize initial conditions so sum of species at each site = 1
-    for j in range(n_points):
-        site_total = np.sum(species[:, j])
-        if site_total > 0:
-            species[:, j] = species[:, j] / site_total
+    # Normalize initial conditions so global integral = 1
+    global_total = np.sum(species) * dx  # Approximate integral using dx
+    if global_total > 0:
+        species = species / global_total
     
     nutrients = np.zeros(n_points)
     nutrients[0] = boundary_N  # Boundary condition at x=0
@@ -64,8 +63,11 @@ def run_simulation(t, x, dt, dx, D_N, D_S, boundary_N, g, N_species, save_interv
             R_values[i] = (g[i] * nutrients) / (10**((g[i] - 1) / 0.3) + nutrients)
         
         # Calculate reaction terms
-        local_dilution = np.sum(R_values * species, axis=0)  # Sum over species at each position
         nutrient_consumption = np.sum(R_values * species, axis=0)
+        
+        # Calculate global dilution to maintain total integral = 1
+        total_growth = np.sum(R_values * species) * dx  # Total growth rate across all space
+        global_dilution = total_growth  # Dilution rate to maintain global constraint
         
         # Update nutrients semi-implicitly: (I - dt*D_N*∇²)N^{n+1} = N^n - dt*consumption
         rhs_nutrients = nutrients - dt * nutrient_consumption
@@ -89,8 +91,8 @@ def run_simulation(t, x, dt, dx, D_N, D_S, boundary_N, g, N_species, save_interv
         
         # Update each species semi-implicitly
         for i in range(N_species):
-            # Growth term using current values: R_i(N) * S_i - S_i * local_dilution
-            growth = R_values[i] * species[i] - species[i] * local_dilution
+            # Growth term using current values: R_i(N) * S_i - S_i * global_dilution
+            growth = R_values[i] * species[i] - species[i] * global_dilution
             
             # (I - dt*D_S*∇²)S_i^{n+1} = S_i^n + dt*growth
             rhs_species = species[i] + dt * growth
@@ -117,11 +119,11 @@ def run_simulation(t, x, dt, dx, D_N, D_S, boundary_N, g, N_species, save_interv
 
 
 def main():
-    N_species = 4
+    N_species = 20
     D_N = 0.1
     D_S = 1e-5
     x = np.linspace(0, 1, 100)
-    t = np.linspace(0, 10000, 2000000)
+    t = np.linspace(0, 1000, 20000)
     dt = t[1] - t[0]  # time step
     dx = x[1] - x[0]  # spatial step
     boundary_N = 1  # Boundary condition for nutrients at x=0
@@ -176,12 +178,12 @@ def main():
                                  interval=50, blit=True, repeat=True)
     
     plt.tight_layout()
-    os.makedirs(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}", exist_ok=True)
+    os.makedirs(f"src/quantizedSpeciesPDE/normalizationTotal/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}", exist_ok=True)
     with tqdm(total=len(time_points), desc="Saving animation") as pbar:
         def progress_callback(current_frame, total_frames):
             pbar.update(1)
 
-        anim.save(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/animation.mp4",
+        anim.save(f"src/quantizedSpeciesPDE/normalizationTotal/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/animation.mp4",
                   fps=30, writer='ffmpeg', bitrate=1800,
                   progress_callback=progress_callback)
     
@@ -197,7 +199,7 @@ def main():
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/growth_functions.png")
+    plt.savefig(f"src/quantizedSpeciesPDE/normalizationTotal/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/growth_functions.png")
 
     # Also save final state plot
     plt.figure(figsize=(10, 6))
@@ -240,7 +242,7 @@ def main():
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(f"src/quantizedSpeciesPDE/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/final_state.png")
+    plt.savefig(f"src/quantizedSpeciesPDE/normalizationTotal/plots/nutrientSink1D/N{N_species}_DN{D_N}_DS{D_S}/final_state.png")
 
 
 if __name__ == "__main__":
